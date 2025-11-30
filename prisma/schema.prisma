@@ -1,0 +1,261 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum OrderStatus {
+  PENDING         // Aguardando pagamento
+  PAYMENT_PENDING // Pagamento em processamento
+  PAID            // Pago e confirmado
+  PROCESSING      // Em preparação/separação
+  SHIPPED         // Enviado
+  DELIVERED       // Entregue
+  CANCELLED       // Cancelado
+  REFUNDED        // Reembolsado
+}
+
+enum PaymentStatus {
+  PENDING     // Aguardando pagamento
+  PROCESSING  // Processando
+  APPROVED    // Aprovado
+  REJECTED    // Rejeitado
+  REFUNDED    // Reembolsado
+  CANCELLED   // Cancelado
+}
+
+enum PaymentMethod {
+  CREDIT_CARD  // Cartão de crédito
+  DEBIT_CARD   // Cartão de débito
+  PIX          // PIX
+  BOLETO       // Boleto bancário
+  WALLET       // Carteira digital (Mercado Pago)
+}
+
+enum NotificationType {
+  NEW_ORDER
+  ORDER_UPDATE
+  LOW_STOCK
+  SYSTEM
+}
+
+enum ProductType {
+  PHYSICAL    // Produto físico que precisa envio
+  DIGITAL     // Produto digital (download)
+  SERVICE     // Serviço sem envio físico
+}
+
+enum ProductCondition {
+  NEW         // Produto novo
+  USED        // Produto usado
+  REFURBISHED // Produto recondicionado
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password      String
+  role          UserRole       @default(ADMIN)
+  avatar        String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique @default(cuid())
+  customerId      String?
+  customerName    String
+  customerEmail   String?
+  customerPhone   String?
+  items           Json          // Array de { productId, title, price, quantity, image }
+  subtotal        Float
+  shipping        Float         @default(0)
+  total           Float
+  status          OrderStatus   @default(PENDING)
+  trackingCode    String?
+  notes           String?
+  shippingAddress Json?         // { street, city, state, zip, country }
+  payment         Payment?      // Relação com pagamento
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("orders")
+  @@index([status])
+  @@index([createdAt])
+  @@index([customerEmail])
+}
+
+model Payment {
+  id                   String        @id @default(uuid())
+  orderId              String        @unique
+  order                Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount               Float         // Valor total pago
+  method               PaymentMethod // Forma de pagamento
+  status               PaymentStatus @default(PENDING)
+  
+  // Mercado Pago específico
+  mercadoPagoId        String?       @unique // ID do pagamento no Mercado Pago
+  mercadoPagoStatus    String?       // Status original do MP
+  preferenceId         String?       // ID da preferência de pagamento
+  
+  // Detalhes do pagamento
+  payerEmail           String?
+  payerName            String?
+  payerDocument        String?       // CPF/CNPJ
+  
+  // Informações adicionais
+  installments         Int?          // Número de parcelas
+  transactionAmount    Float?        // Valor da transação
+  netAmount            Float?        // Valor líquido (após taxas)
+  feeAmount            Float?        // Valor da taxa
+  
+  // Datas importantes
+  approvedAt           DateTime?     // Quando foi aprovado
+  refundedAt           DateTime?     // Quando foi reembolsado
+  
+  // Webhook e rastreamento
+  webhookData          Json?         // Dados completos do webhook
+  ipAddress            String?       // IP do comprador
+  
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@map("payments")
+  @@index([orderId])
+  @@index([mercadoPagoId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Product {
+  id           String           @id @default(uuid())
+  title        String
+  description  String?
+  price        Float
+  comparePrice Float?           // Preço "de" (riscado)
+  stock        Int              @default(0)
+  category     String?
+  tags         String[]         // Para busca e filtros
+  type         ProductType      @default(PHYSICAL)
+  condition    ProductCondition @default(NEW)
+  featured     Boolean          @default(false)
+  active       Boolean          @default(true)
+  sales        Int              @default(0) // Contador de vendas
+  sku          String?          @unique
+  weight       Float?           // Para cálculo de frete (gramas)
+  dimensions   Json?            // { width, height, depth } em cm
+  images       ProductImage[]   // Relação com imagens
+  promotions   Promotion[]      // Relação com promoções
+  digitalFiles DigitalFile[]    // Arquivos para download (produtos digitais)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("products")
+  @@index([category])
+  @@index([featured])
+  @@index([active])
+  @@index([type])
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String   // URL da imagem
+  alt       String?  // Texto alternativo para SEO
+  order     Int      @default(0) // Ordem de exibição (0 = principal)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("product_images")
+  @@index([productId])
+  @@index([productId, order])
+}
+
+model DigitalFile {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String   // Nome do arquivo (ex: "Jogo da Velha - Base.pdf")
+  description String?  // Descrição do arquivo
+  fileUrl     String   // URL do arquivo (S3, Cloudinary, etc)
+  fileSize    Int?     // Tamanho em bytes
+  fileType    String?  // Tipo MIME (application/pdf, image/png, etc)
+  downloadCount Int    @default(0) // Contador de downloads
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("digital_files")
+  @@index([productId])
+  @@index([active])
+}
+
+model Promotion {
+  id              String   @id @default(uuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name            String   // Nome da promoção (ex: "Black Friday")
+  discountPercent Float?   // Desconto em % (ex: 20.5 = 20.5%)
+  discountAmount  Float?   // OU desconto fixo em R$ (ex: 10.00)
+  startDate       DateTime // Data/hora início
+  endDate         DateTime // Data/hora fim
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("promotions")
+  @@index([productId])
+  @@index([active])
+  @@index([startDate, endDate])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  data      Json? // Dados adicionais (ex: orderId, productId)
+  createdAt DateTime         @default(now())
+
+  @@map("notifications")
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+// Histórico de compras dos clientes (para controle de acesso a downloads)
+model PurchaseHistory {
+  id            String   @id @default(uuid())
+  orderId       String   // ID do pedido
+  customerEmail String   // Email do cliente
+  customerName  String   // Nome do cliente
+  productId     String   // ID do produto comprado
+  productTitle  String   // Título do produto (snapshot)
+  pricePaid     Float    // Preço pago
+  purchasedAt   DateTime @default(now())
+
+  @@map("purchase_history")
+  @@index([orderId])
+  @@index([customerEmail])
+  @@index([productId])
+  @@index([customerEmail, productId])
+}
