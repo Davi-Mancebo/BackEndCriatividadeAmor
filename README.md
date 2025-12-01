@@ -1,14 +1,34 @@
-# Backend - Criatividade com Amor
+# 🎨 Backend - Criatividade com Amor
 
-Backend API REST para plataforma de e-commerce desenvolvido com Node.js, Express, TypeScript, Prisma e PostgreSQL.
+Backend completo para e-commerce de **produtos digitais** (PDFs para impressão).
+
+**Stack:** Node.js + Express + TypeScript + Prisma + PostgreSQL + Mercado Pago
+
+---
+
+## 📚 Documentação Completa
+
+Toda documentação técnica está na pasta **`docs/`**:
+
+- **[🚀 COMO_FUNCIONA.md](docs/COMO_FUNCIONA.md)** - **COMECE AQUI!** Funcionamento completo (login, imagens, banco de dados)
+- **[📖 FLUXO_COMPLETO.md](docs/FLUXO_COMPLETO.md)** - Jornada do cliente (carrinho → pagamento → download)
+- **[🏗️ ARQUITETURA.md](docs/ARQUITETURA.md)** - Padrão Service/Controller/Route
+- **[💳 SISTEMA_PAGAMENTOS.md](docs/SISTEMA_PAGAMENTOS.md)** - Integração Mercado Pago
+- **[🖼️ SISTEMA_IMAGENS.md](docs/SISTEMA_IMAGENS.md)** - Upload de imagens/arquivos
+- **[📝 DECISOES_ARQUITETURA.md](docs/DECISOES_ARQUITETURA.md)** - Decisões técnicas
+- **[✨ MELHORIAS_SUGERIDAS.md](docs/MELHORIAS_SUGERIDAS.md)** - Roadmap
+
+---
 
 ## 🚀 Tecnologias
 
-- **Node.js** + **TypeScript**
-- **Express** - Framework web
-- **Prisma** - ORM
+- **Node.js 22+** + **TypeScript 5.7**
+- **Express 4.21** - Framework web
+- **Prisma 5.22** - ORM type-safe
 - **PostgreSQL** - Banco de dados
 - **JWT** - Autenticação
+- **Mercado Pago** - Gateway de pagamento
+- **Cloudinary** - Upload de arquivos
 - **Bcrypt** - Hash de senhas
 - **Multer** - Upload de arquivos
 - **Cloudinary** - Armazenamento de imagens (opcional)

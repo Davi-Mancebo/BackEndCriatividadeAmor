@@ -1,11 +1,34 @@
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { Request } from 'express';
 
-// Configuração para salvar localmente
+// Configuração para salvar localmente com pasta por produto
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    // Se tiver productId na rota, criar pasta específica
+    const productId = req.params.productId;
+    const baseDir = 'uploads/products';
+    
+    if (productId) {
+      const productDir = path.join(baseDir, productId);
+      
+      // Criar diretório se não existir
+      if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir, { recursive: true });
+      }
+      if (!fs.existsSync(productDir)) {
+        fs.mkdirSync(productDir, { recursive: true });
+      }
+      
+      cb(null, productDir);
+    } else {
+      // Fallback para pasta geral
+      if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir, { recursive: true });
+      }
+      cb(null, baseDir);
+    }
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);

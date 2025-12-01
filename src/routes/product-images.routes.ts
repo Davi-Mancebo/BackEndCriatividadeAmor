@@ -1,12 +1,9 @@
-import { Router, Response } from 'express';
+import { Router } from 'express';
 import { param, body } from 'express-validator';
-import prisma from '../lib/prisma';
-import { authMiddleware, AuthRequest } from '../middlewares/auth.middleware';
+import { authMiddleware } from '../middlewares/auth.middleware';
 import { upload } from '../middlewares/upload.middleware';
 import { validate } from '../utils/validate';
-import { AppError } from '../middlewares/error.middleware';
-import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinary';
-import fs from 'fs/promises';
+import productImagesController from '../controllers/product-images.controller';
 
 const router = Router();
 
@@ -22,64 +19,17 @@ router.post(
     body('alt').optional().isString(),
     body('order').optional().toInt().isInt({ min: 0 }),
   ]),
-  async (req: AuthRequest, res: Response) => {
-    const { productId } = req.params;
-    const { alt, order } = req.body;
+  productImagesController.create
+);
 
-    // Verificar se produto existe
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-    });
-
-    if (!product) {
-      throw new AppError('Produto não encontrado', 404);
-    }
-
-    if (!req.file) {
-      throw new AppError('Nenhuma imagem enviada', 400);
-    }
-
-    try {
-      let imageUrl: string;
-
-      // Upload para Cloudinary ou local
-      if (process.env.CLOUDINARY_CLOUD_NAME) {
-        imageUrl = await uploadToCloudinary(req.file.path, 'products');
-        await fs.unlink(req.file.path);
-      } else {
-        imageUrl = `/uploads/${req.file.filename}`;
-      }
-
-      // Se order não foi fornecido, pegar o próximo número
-      let imageOrder = order ? parseInt(order) : 0;
-      
-      if (!order) {
-        const lastImage = await prisma.productImage.findFirst({
-          where: { productId },
-          orderBy: { order: 'desc' },
-        });
-        imageOrder = lastImage ? lastImage.order + 1 : 0;
-      }
-
-      // Criar registro da imagem
-      const productImage = await prisma.productImage.create({
-        data: {
-          productId,
-          url: imageUrl,
-          alt: alt || product.title,
-          order: imageOrder,
-        },
-      });
-
-      res.status(201).json(productImage);
-    } catch (error) {
-      // Limpar arquivo em caso de erro
-      if (req.file) {
-        await fs.unlink(req.file.path).catch(() => {});
-      }
-      throw error;
-    }
-  }
+// POST /api/products/:productId/images/bulk - Adicionar múltiplas imagens
+router.post(
+  '/:productId/images/bulk',
+  upload.array('images', 10), // Máximo 10 imagens por vez
+  validate([
+    param('productId').isUUID().withMessage('ID do produto inválido'),
+  ]),
+  productImagesController.createBulk
 );
 
 // GET /api/products/:productId/images - Listar imagens do produto
@@ -88,16 +38,7 @@ router.get(
   validate([
     param('productId').isUUID().withMessage('ID do produto inválido'),
   ]),
-  async (req: AuthRequest, res: Response) => {
-    const { productId } = req.params;
-
-    const images = await prisma.productImage.findMany({
-      where: { productId },
-      orderBy: { order: 'asc' },
-    });
-
-    res.json(images);
-  }
+  productImagesController.list
 );
 
 // PUT /api/products/:productId/images/:imageId - Atualizar imagem
@@ -109,31 +50,7 @@ router.put(
     body('alt').optional().isString(),
     body('order').optional().toInt().isInt({ min: 0 }),
   ]),
-  async (req: AuthRequest, res: Response) => {
-    const { productId, imageId } = req.params;
-    const { alt, order } = req.body;
-
-    const image = await prisma.productImage.findFirst({
-      where: {
-        id: imageId,
-        productId,
-      },
-    });
-
-    if (!image) {
-      throw new AppError('Imagem não encontrada', 404);
-    }
-
-    const updatedImage = await prisma.productImage.update({
-      where: { id: imageId },
-      data: {
-        ...(alt !== undefined && { alt }),
-        ...(order !== undefined && { order: parseInt(order) }),
-      },
-    });
-
-    res.json(updatedImage);
-  }
+  productImagesController.update
 );
 
 // DELETE /api/products/:productId/images/:imageId - Deletar imagem
@@ -143,73 +60,19 @@ router.delete(
     param('productId').isUUID(),
     param('imageId').isUUID(),
   ]),
-  async (req: AuthRequest, res: Response) => {
-    const { productId, imageId } = req.params;
-
-    const image = await prisma.productImage.findFirst({
-      where: {
-        id: imageId,
-        productId,
-      },
-    });
-
-    if (!image) {
-      throw new AppError('Imagem não encontrada', 404);
-    }
-
-    // Deletar do Cloudinary se for URL do Cloudinary
-    if (image.url.includes('cloudinary')) {
-      await deleteFromCloudinary(image.url);
-    }
-
-    await prisma.productImage.delete({
-      where: { id: imageId },
-    });
-
-    res.json({ message: 'Imagem deletada com sucesso' });
-  }
+  productImagesController.delete
 );
 
 // PUT /api/products/:productId/images/reorder - Reordenar imagens
 router.put(
   '/:productId/images/reorder',
+  authMiddleware,
   validate([
     param('productId').isUUID(),
-    body('imageIds').isArray().withMessage('imageIds deve ser um array'),
+    body('imageIds').isArray({ min: 1 }).withMessage('imageIds deve ser um array não vazio'),
+    body('imageIds.*').isUUID().withMessage('Todos os IDs devem ser UUIDs válidos'),
   ]),
-  async (req: AuthRequest, res: Response) => {
-    const { productId } = req.params;
-    const { imageIds } = req.body as { imageIds: string[] };
-
-    // Verificar se todas as imagens pertencem ao produto
-    const images = await prisma.productImage.findMany({
-      where: {
-        productId,
-        id: { in: imageIds },
-      },
-    });
-
-    if (images.length !== imageIds.length) {
-      throw new AppError('Algumas imagens não pertencem a este produto', 400);
-    }
-
-    // Atualizar ordem de cada imagem
-    await Promise.all(
-      imageIds.map((id, index) =>
-        prisma.productImage.update({
-          where: { id },
-          data: { order: index },
-        })
-      )
-    );
-
-    const updatedImages = await prisma.productImage.findMany({
-      where: { productId },
-      orderBy: { order: 'asc' },
-    });
-
-    res.json(updatedImages);
-  }
+  productImagesController.reorder
 );
 
 export default router;

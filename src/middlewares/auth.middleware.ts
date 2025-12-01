@@ -56,7 +56,7 @@ export const adminMiddleware = async (
       where: { id: req.userId },
     });
 
-    if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+    if (!user || user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 

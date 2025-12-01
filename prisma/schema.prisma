@@ -12,7 +12,6 @@ datasource db {
 
 enum UserRole {
   ADMIN
-  SUPER_ADMIN
 }
 
 enum OrderStatus {
@@ -48,6 +47,13 @@ enum NotificationType {
   ORDER_UPDATE
   LOW_STOCK
   SYSTEM
+  PAYMENT
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REVIEW
+  USER
+  REVENUE
 }
 
 enum ProductType {
@@ -69,6 +75,7 @@ model User {
   password      String
   role          UserRole       @default(ADMIN)
   avatar        String?
+  phone         String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   notifications Notification[]
@@ -76,26 +83,45 @@ model User {
   @@map("users")
 }
 
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+  age       Int?
+  avatar    String?
+  orders    Order[]  // Pedidos do cliente
+  reviews   Review[] // Avaliações feitas pelo cliente
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("customers")
+}
+
 model Order {
   id              String        @id @default(uuid())
   orderNumber     String        @unique @default(cuid())
-  customerId      String?
-  customerName    String
-  customerEmail   String?
-  customerPhone   String?
-  items           Json          // Array de { productId, title, price, quantity, image }
+  customerId      String?       // ID do cliente cadastrado
+  customer        Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName    String        // Nome (sempre preenchido, mesmo cliente guest)
+  customerEmail   String?       // Email
+  customerPhone   String?       // Telefone
+  items           Json          // Array de { productId, title, price, quantity }
   subtotal        Float
   shipping        Float         @default(0)
   total           Float
   status          OrderStatus   @default(PENDING)
+  paymentMethod   PaymentMethod @default(PIX)
   trackingCode    String?
   notes           String?
-  shippingAddress Json?         // { street, city, state, zip, country }
+  shippingAddress Json?         // { street, number, complement, neighborhood, city, state, zipCode }
   payment         Payment?      // Relação com pagamento
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   @@map("orders")
+  @@index([customerId])
   @@index([status])
   @@index([createdAt])
   @@index([customerEmail])
@@ -163,6 +189,7 @@ model Product {
   images       ProductImage[]   // Relação com imagens
   promotions   Promotion[]      // Relação com promoções
   digitalFiles DigitalFile[]    // Arquivos para download (produtos digitais)
+  reviews      Review[]         // Avaliações do produto
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -242,6 +269,28 @@ model Notification {
   @@index([createdAt])
 }
 
+// Avaliações de produtos
+model Review {
+  id         String   @id @default(uuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName String
+  customerEmail String
+  rating     Int      // 1 a 5 estrelas
+  comment    String?
+  verified   Boolean  @default(false) // Se o cliente comprou o produto
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("reviews")
+  @@index([productId])
+  @@index([customerId])
+  @@index([rating])
+  @@index([createdAt])
+}
+
 // Histórico de compras dos clientes (para controle de acesso a downloads)
 model PurchaseHistory {
   id            String   @id @default(uuid())
@@ -258,4 +307,19 @@ model PurchaseHistory {
   @@index([customerEmail])
   @@index([productId])
   @@index([customerEmail, productId])
+}
+
+// Metas de vendas
+model SalesGoal {
+  id          String   @id @default(uuid())
+  month       Int      // 1-12
+  year        Int      // 2024, 2025, etc
+  targetValue Float    // Valor da meta
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("sales_goals")
+  @@unique([month, year])
+  @@index([year, month])
 }

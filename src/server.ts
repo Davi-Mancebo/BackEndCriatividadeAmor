@@ -6,16 +6,21 @@ import path from 'path';
 
 import { errorHandler } from './middlewares/error.middleware';
 
-// Rotas
-import authRoutes from './routes/auth.routes';
-import ordersRoutes from './routes/orders.routes';
-import productsRoutes from './routes/products.routes';
-import productImagesRoutes from './routes/product-images.routes';
-import promotionsRoutes from './routes/promotions.routes';
-import paymentsRoutes from './routes/payments.routes';
-import digitalFilesRoutes from './routes/digital-files.routes';
-import purchasesRoutes from './routes/purchases.routes';
-import notificationsRoutes from './routes/notifications.routes';
+// Rotas (importação centralizada)
+import {
+  authRoutes,
+  notificationsRoutes,
+  ordersRoutes,
+  productsRoutes,
+  productImagesRoutes,
+  promotionsRoutes,
+  digitalFilesRoutes,
+  purchasesRoutes,
+  paymentsRoutes,
+  reviewsRoutes,
+  customersRoutes,
+  salesGoalsRoutes,
+} from './routes';
 
 dotenv.config();
 
@@ -49,6 +54,9 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/digital-files', digitalFilesRoutes);
 app.use('/api/purchases', purchasesRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api', reviewsRoutes);
+app.use('/api/customers', customersRoutes);
+app.use('/api/sales-goals', salesGoalsRoutes);
 
 // Rota 404
 app.use((req, res) => {
