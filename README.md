@@ -488,9 +488,9 @@ MIT License - veja o arquivo [LICENSE](LICENSE) para detalhes.
 
 ## 📞 Contato & Suporte
 
-- **Desenvolvedor:** David Martins
-- **GitHub:** [@davimcruz](https://github.com/davimcruz)
-- **Email:** contato@criatividadeamor.com
+- **Desenvolvedor:** Davi Mancebo
+- **GitHub:** [@davi-mancebo](https://github.com/davi-mancebo)
+- **Email:** davimancebo@gmail.com
 
 ---
 
