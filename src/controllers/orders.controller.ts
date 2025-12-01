@@ -9,6 +9,8 @@ class OrdersController {
       limit: parseInt(req.query.limit as string) || 10,
       status: req.query.status as string | undefined,
       search: req.query.search as string | undefined,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
       sortBy: (req.query.sortBy as string) || 'createdAt',
       sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
     };

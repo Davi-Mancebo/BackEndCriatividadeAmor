@@ -6,6 +6,8 @@ interface OrderFilters {
   limit?: number;
   status?: string;
   search?: string;
+  startDate?: string;
+  endDate?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -56,6 +58,8 @@ class OrdersService {
     const limit = filters.limit || 10;
     const status = filters.status;
     const search = filters.search;
+    const startDate = filters.startDate;
+    const endDate = filters.endDate;
     const sortBy = filters.sortBy || 'createdAt';
     const sortOrder = filters.sortOrder || 'desc';
 
@@ -75,6 +79,19 @@ class OrdersService {
         { orderNumber: { contains: search, mode: 'insensitive' } },
         { trackingCode: { contains: search, mode: 'insensitive' } },
       ];
+    }
+
+    // Filtro de data
+    if (startDate || endDate) {
+      where.createdAt = {};
+      
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate);
+      }
+      
+      if (endDate) {
+        where.createdAt.lte = new Date(endDate);
+      }
     }
 
     // Buscar pedidos
