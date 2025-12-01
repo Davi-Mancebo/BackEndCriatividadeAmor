@@ -28,10 +28,11 @@ class AuthController {
 
   async updateProfile(req: AuthRequest, res: Response) {
     try {
-      const { name, email, currentPassword, newPassword, avatar } = req.body;
+      const { name, email, phone, currentPassword, newPassword, avatar } = req.body;
       const updatedUser = await authService.updateProfile(req.userId!, {
         name,
         email,
+        phone,
         currentPassword,
         newPassword,
         avatar,

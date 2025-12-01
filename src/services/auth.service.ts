@@ -11,6 +11,7 @@ interface LoginData {
 interface UpdateProfileData {
   name?: string;
   email?: string;
+  phone?: string;
   currentPassword?: string;
   newPassword?: string;
   avatar?: string;
@@ -55,6 +56,7 @@ class AuthService {
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
         avatar: true,
         createdAt: true,
@@ -69,7 +71,7 @@ class AuthService {
   }
 
   async updateProfile(userId: string, data: UpdateProfileData) {
-    const { name, email, currentPassword, newPassword, avatar } = data;
+    const { name, email, phone, currentPassword, newPassword, avatar } = data;
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -77,6 +79,11 @@ class AuthService {
 
     if (!user) {
       throw new AppError('Usuário não encontrado', 404);
+    }
+
+    // Validar que ambos os campos de senha sejam fornecidos juntos
+    if ((currentPassword && !newPassword) || (!currentPassword && newPassword)) {
+      throw new AppError('Para alterar a senha, forneça a senha atual e a nova senha', 400);
     }
 
     // Se está tentando mudar a senha
@@ -101,12 +108,14 @@ class AuthService {
       data: {
         ...(name && { name }),
         ...(email && { email }),
+        ...(phone !== undefined && { phone }),
         ...(avatar !== undefined && { avatar }),
       },
       select: {
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
         avatar: true,
         createdAt: true,

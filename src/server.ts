@@ -12,7 +12,6 @@ import {
   notificationsRoutes,
   ordersRoutes,
   productsRoutes,
-  productImagesRoutes,
   promotionsRoutes,
   digitalFilesRoutes,
   purchasesRoutes,
@@ -47,14 +46,13 @@ app.get('/health', (req, res) => {
 // Rotas da API
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', ordersRoutes);
-app.use('/api/products', productsRoutes);
-app.use('/api/products', productImagesRoutes);
+app.use('/api/products', productsRoutes); // Inclui rotas de imagens de produtos
 app.use('/api/promotions', promotionsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/digital-files', digitalFilesRoutes);
 app.use('/api/purchases', purchasesRoutes);
 app.use('/api/notifications', notificationsRoutes);
-app.use('/api', reviewsRoutes);
+app.use('/api/reviews', reviewsRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/sales-goals', salesGoalsRoutes);
 

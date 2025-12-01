@@ -19,6 +19,9 @@ router.get('/', salesGoalsController.list);
 // POST /api/sales-goals - Criar nova meta
 router.post('/', salesGoalsController.create);
 
+// PUT /api/sales-goals - Atualizar/criar meta do mês atual (alias para /current)
+router.put('/', salesGoalsController.updateCurrent);
+
 // GET /api/sales-goals/:month/:year - Meta específica com progresso
 router.get('/:month/:year', salesGoalsController.getByMonthYear);
 

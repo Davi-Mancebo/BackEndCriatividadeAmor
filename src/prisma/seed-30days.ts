@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 // Tipos dos enums
 type OrderStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-type PaymentMethod = 'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_SLIP';
+type PaymentMethod = 'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BOLETO' | 'WALLET';
 type NotificationType = 'ORDER' | 'PAYMENT' | 'DELIVERY' | 'PROMOTION' | 'SYSTEM';
 
 // Função para gerar data aleatória nos últimos 30 dias
@@ -43,7 +43,7 @@ const addresses = [
 ];
 
 const orderStatuses: OrderStatus[] = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-const paymentMethods: PaymentMethod[] = ['CREDIT_CARD', 'DEBIT_CARD', 'PIX', 'BANK_SLIP'];
+const paymentMethods: PaymentMethod[] = ['CREDIT_CARD', 'DEBIT_CARD', 'PIX', 'BOLETO'];
 
 async function main() {
   console.log('🌱 Iniciando seed completo - Simulando 30 dias de operação...\n');

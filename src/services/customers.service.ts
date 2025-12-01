@@ -136,7 +136,14 @@ class CustomersService {
   }
 
   async getStats() {
-    const [totalCustomers, newThisMonth, customersWithOrders, topCustomers] = await Promise.all([
+    const [
+      totalCustomers,
+      newThisMonth,
+      customersWithOrders,
+      topCustomers,
+      totalRevenueAgg,
+      totalOrdersAgg
+    ] = await Promise.all([
       prisma.customer.count(),
       prisma.customer.count({
         where: {
@@ -175,15 +182,28 @@ class CustomersService {
           }
         },
         take: 5
+      }),
+      prisma.order.aggregate({
+        where: { status: { in: ['DELIVERED', 'PAID', 'PROCESSING', 'SHIPPED'] } },
+        _sum: { total: true }
+      }),
+      prisma.order.aggregate({
+        _count: { id: true }
       })
     ]);
+
+    const totalRevenue = totalRevenueAgg._sum.total || 0;
+    const totalOrders = totalOrdersAgg._count.id || 0;
+    const averageOrdersPerCustomer = totalCustomers > 0 ? (totalOrders / totalCustomers) : 0;
 
     return {
       totalCustomers,
       newThisMonth,
       customersWithOrders,
       customersWithoutOrders: totalCustomers - customersWithOrders,
-      topCustomers
+      topCustomers,
+      totalRevenue,
+      averageOrdersPerCustomer
     };
   }
 

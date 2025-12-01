@@ -76,9 +76,11 @@ class SalesGoalsController {
       }
 
       const result = await salesGoalsService.getByMonthYear(month, year);
+      
+      // Se não existe meta, retorna 200 com goal null (não é erro)
       return res.json(result);
     } catch (error: any) {
-      return res.status(404).json({ error: error.message });
+      return res.status(500).json({ error: error.message });
     }
   }
 

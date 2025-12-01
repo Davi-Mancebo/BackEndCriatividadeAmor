@@ -2,8 +2,7 @@
 export { default as authRoutes } from './auth.routes';
 export { default as notificationsRoutes } from './notifications.routes';
 export { default as ordersRoutes } from './orders.routes';
-export { default as productsRoutes } from './products.routes';
-export { default as productImagesRoutes } from './product-images.routes';
+export { default as productsRoutes } from './products.routes'; // Inclui rotas de product-images
 export { default as promotionsRoutes } from './promotions.routes';
 export { default as digitalFilesRoutes } from './digital-files.routes';
 export { default as purchasesRoutes } from './purchases.routes';

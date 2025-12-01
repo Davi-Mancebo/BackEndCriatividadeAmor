@@ -3,8 +3,7 @@ import reviewsController from '../controllers/reviews.controller';
 
 const router = Router();
 
-// GET /api/products/:productId/reviews - Buscar avaliações de um produto
-router.get('/products/:productId/reviews', reviewsController.getByProduct);
+// Rota de buscar avaliações de um produto deve ser registrada em products.routes.ts para manter a semântica REST.
 
 // POST /api/reviews - Criar avaliação
 router.post('/', reviewsController.create);

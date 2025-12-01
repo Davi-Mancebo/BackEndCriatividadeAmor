@@ -90,10 +90,7 @@ class SalesGoalsService {
       }
     });
 
-    if (!goal) {
-      throw new Error('Meta não encontrada');
-    }
-
+    // Retornar progresso mesmo sem meta definida
     const progress = await this.calculateProgress(month, year, goal);
 
     return {

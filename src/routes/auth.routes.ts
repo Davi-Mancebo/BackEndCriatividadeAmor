@@ -26,9 +26,11 @@ router.put(
   validate([
     body('name').optional().notEmpty().withMessage('Nome não pode ser vazio'),
     body('email').optional().isEmail().withMessage('Email inválido'),
+    body('phone').optional(),
+    body('avatar').optional(),
     body('currentPassword').optional(),
     body('newPassword')
-      .optional()
+      .optional({ values: 'falsy' })
       .isLength({ min: 6 })
       .withMessage('Nova senha deve ter no mínimo 6 caracteres'),
   ]),
