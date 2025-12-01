@@ -6,30 +6,42 @@ import { AppError } from '../middlewares/error.middleware';
 export class PurchaseController {
   // Listar produtos comprados (público)
   async getMyProducts(req: AuthRequest, res: Response) {
-    const { email } = req.query;
+    try {
+      const { email } = req.query;
 
-    if (!email) {
-      throw new AppError('Email obrigatório', 400);
+      if (!email) {
+        throw new AppError('Email obrigatório', 400);
+      }
+
+      const result = await purchaseService.getCustomerPurchases(email as string);
+      res.json(result);
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        error: error.message || 'Erro ao buscar compras'
+      });
     }
-
-    const result = await purchaseService.getCustomerPurchases(email as string);
-    res.json(result);
   }
 
   // Verificar compra (público)
   async verify(req: AuthRequest, res: Response) {
-    const { email, productId } = req.query;
+    try {
+      const { email, productId } = req.query;
 
-    if (!email || !productId) {
-      throw new AppError('Email e productId obrigatórios', 400);
+      if (!email || !productId) {
+        throw new AppError('Email e productId obrigatórios', 400);
+      }
+
+      const result = await purchaseService.verifyPurchase(
+        email as string,
+        productId as string
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        error: error.message || 'Erro ao verificar compra'
+      });
     }
-
-    const result = await purchaseService.verifyPurchase(
-      email as string,
-      productId as string
-    );
-
-    res.json(result);
   }
 }
 

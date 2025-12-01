@@ -31,35 +31,59 @@ class ProductImagesController {
   }
 
   async list(req: AuthRequest, res: Response) {
-    const { productId } = req.params;
-    const images = await productImagesService.list(productId);
-    res.json(images);
+    try {
+      const { productId } = req.params;
+      const images = await productImagesService.list(productId);
+      res.json(images);
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        error: error.message || 'Erro ao listar imagens'
+      });
+    }
   }
 
   async update(req: AuthRequest, res: Response) {
-    const { productId, imageId } = req.params;
-    const { alt, order } = req.body;
+    try {
+      const { productId, imageId } = req.params;
+      const { alt, order } = req.body;
 
-    const updatedImage = await productImagesService.update(productId, imageId, {
-      alt,
-      order: order !== undefined ? parseInt(order) : undefined,
-    });
+      const updatedImage = await productImagesService.update(productId, imageId, {
+        alt,
+        order: order !== undefined ? parseInt(order) : undefined,
+      });
 
-    res.json(updatedImage);
+      res.json(updatedImage);
+    } catch (error: any) {
+      res.status(error.statusCode || 400).json({
+        error: error.message || 'Erro ao atualizar imagem'
+      });
+    }
   }
 
   async delete(req: AuthRequest, res: Response) {
-    const { productId, imageId } = req.params;
-    const result = await productImagesService.delete(productId, imageId);
-    res.json(result);
+    try {
+      const { productId, imageId } = req.params;
+      const result = await productImagesService.delete(productId, imageId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(error.statusCode || 400).json({
+        error: error.message || 'Erro ao deletar imagem'
+      });
+    }
   }
 
   async reorder(req: AuthRequest, res: Response) {
-    const { productId } = req.params;
-    const { imageIds } = req.body as { imageIds: string[] };
+    try {
+      const { productId } = req.params;
+      const { imageIds } = req.body as { imageIds: string[] };
 
-    const updatedImages = await productImagesService.reorder(productId, imageIds);
-    res.json(updatedImages);
+      const updatedImages = await productImagesService.reorder(productId, imageIds);
+      res.json(updatedImages);
+    } catch (error: any) {
+      res.status(error.statusCode || 400).json({
+        error: error.message || 'Erro ao reordenar imagens'
+      });
+    }
   }
 
   async createBulk(req: AuthRequest, res: Response) {
