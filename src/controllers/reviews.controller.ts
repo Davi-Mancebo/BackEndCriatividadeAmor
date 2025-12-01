@@ -30,7 +30,8 @@ class ReviewsController {
       res.json(review);
     } catch (error: any) {
       console.error('Erro ao atualizar avaliação:', error);
-      res.status(400).json({ error: error.message || 'Erro ao atualizar avaliação' });
+      const statusCode = error.message === 'Avaliação não encontrada' ? 404 : 400;
+      res.status(statusCode).json({ error: error.message || 'Erro ao atualizar avaliação' });
     }
   }
 
@@ -41,7 +42,8 @@ class ReviewsController {
       res.json({ message: 'Avaliação deletada com sucesso' });
     } catch (error: any) {
       console.error('Erro ao deletar avaliação:', error);
-      res.status(400).json({ error: error.message || 'Erro ao deletar avaliação' });
+      const statusCode = error.message === 'Avaliação não encontrada' ? 404 : 400;
+      res.status(statusCode).json({ error: error.message || 'Erro ao deletar avaliação' });
     }
   }
 

@@ -99,6 +99,15 @@ class ReviewsService {
   }
 
   async update(id: string, data: { rating?: number; comment?: string }) {
+    // Verificar se review existe
+    const review = await prisma.review.findUnique({
+      where: { id }
+    });
+
+    if (!review) {
+      throw new Error('Avaliação não encontrada');
+    }
+
     return await prisma.review.update({
       where: { id },
       data
@@ -106,6 +115,15 @@ class ReviewsService {
   }
 
   async delete(id: string) {
+    // Verificar se review existe
+    const review = await prisma.review.findUnique({
+      where: { id }
+    });
+
+    if (!review) {
+      throw new Error('Avaliação não encontrada');
+    }
+
     return await prisma.review.delete({
       where: { id }
     });
