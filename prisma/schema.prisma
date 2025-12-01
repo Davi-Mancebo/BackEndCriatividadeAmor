@@ -125,6 +125,10 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@index([customerEmail])
+  @@index([customerName])
+  @@index([orderNumber])
+  @@index([total])
+  @@index([subtotal])
 }
 
 model Payment {
