@@ -34,10 +34,6 @@ Toda documentação técnica está organizada na pasta **`docs/`**:
 
 ### 🧪 **Testes:**
 - **[🧪 POSTMAN_TESTS.md](docs/POSTMAN_TESTS.md)** - Collection de testes (login, produtos, imagens)
-- **[📊 DASHBOARD-STATUS.md](docs/DASHBOARD-STATUS.md)** - Status do dashboard e estatísticas
-
-### 🚀 **Melhorias:**
-- **[✨ MELHORIAS_SUGERIDAS.md](docs/MELHORIAS_SUGERIDAS.md)** - Roadmap e próximas features
 
 ---
 
