@@ -1,5 +1,44 @@
+import { DigitalFile } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { AppError } from '../middlewares/error.middleware';
+
+const ALLOWED_DIGITAL_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/x-pdf',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-rar-compressed',
+  'application/octet-stream',
+]);
+
+const ALLOWED_DIGITAL_EXTENSIONS = new Set(['pdf', 'zip', 'rar']);
+
+const getExtension = (value?: string | null) => {
+  if (!value) return null;
+  const sanitized = value.toLowerCase().split('?')[0];
+  if (!sanitized.includes('.')) return null;
+  const parts = sanitized.split('.');
+  return parts[parts.length - 1] || null;
+};
+
+const isAllowedDigitalFile = (file: DigitalFile) => {
+  const mime = file.fileType?.toLowerCase();
+  if (mime && ALLOWED_DIGITAL_MIME_TYPES.has(mime)) {
+    return true;
+  }
+
+  const urlExt = getExtension(file.fileUrl);
+  if (urlExt && ALLOWED_DIGITAL_EXTENSIONS.has(urlExt)) {
+    return true;
+  }
+
+  const nameExt = getExtension(file.name);
+  if (nameExt && ALLOWED_DIGITAL_EXTENSIONS.has(nameExt)) {
+    return true;
+  }
+
+  return false;
+};
 
 export class DigitalFileService {
   // Verificar se o produto existe e é digital
@@ -81,7 +120,9 @@ export class DigitalFileService {
       throw new AppError('Este produto não possui arquivos digitais', 400);
     }
 
-    return { product, files: product.digitalFiles };
+    const files = (product.digitalFiles || []).filter(isAllowedDigitalFile);
+
+    return { product, files };
   }
 
   // Atualizar arquivo

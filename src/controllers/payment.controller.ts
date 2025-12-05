@@ -10,6 +10,7 @@ export class PaymentController {
   async create(req: Request, res: Response) {
     try {
       const { orderId, payerEmail, payerName, payerDocument } = req.body;
+      console.info('[PaymentController] Create payment request', { orderId, payerEmail });
 
       // Buscar pedido
       const order = await prisma.order.findUnique({
@@ -24,6 +25,10 @@ export class PaymentController {
       let preference;
       try {
         preference = await mercadoPagoService.createPreference(order);
+        console.info('[PaymentController] Preference created', {
+          orderId,
+          preferenceId: preference.id,
+        });
       } catch (error: any) {
         console.error('Erro ao criar preferência:', error);
         throw new AppError('Erro ao processar pagamento. Tente novamente.', 500);
@@ -51,6 +56,7 @@ export class PaymentController {
         sandboxInitPoint: preference.sandbox_init_point,
         message: 'Pagamento criado. Aguardando confirmação.',
       });
+      console.info('[PaymentController] Payment record created', { paymentId: payment.id, orderId });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({
         error: error.message || 'Erro ao criar pagamento'

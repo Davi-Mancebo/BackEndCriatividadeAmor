@@ -1,15 +1,52 @@
 import { Router } from 'express';
-import { param, body } from 'express-validator';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { param, body, query } from 'express-validator';
+import { authMiddleware, adminMiddleware } from '../middlewares/auth.middleware';
 import { validate } from '../utils/validate';
 import promotionsController from '../controllers/promotions.controller';
 
 const router = Router();
 
-// Todas as rotas precisam de autenticação
-router.use(authMiddleware);
+// ============================================
+// ROTAS PÚBLICAS - Cliente visualizar promoções
+// ============================================
 
-// POST /api/promotions - Criar promoção
+// GET /api/promotions - Listar promoções ativas (PÚBLICA)
+router.get(
+  '/',
+  validate([
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 }),
+    query('active').optional().isBoolean(),
+  ]),
+  promotionsController.list
+);
+
+// GET /api/promotions/product/:productId/active - Promoção ativa do produto (PÚBLICA)
+router.get(
+  '/product/:productId/active',
+  validate([
+    param('productId').isUUID().withMessage('ID do produto inválido'),
+  ]),
+  promotionsController.getActiveByProduct
+);
+
+// GET /api/promotions/:id - Detalhes da promoção (PÚBLICA)
+router.get(
+  '/:id',
+  validate([
+    param('id').isUUID().withMessage('ID inválido'),
+  ]),
+  promotionsController.getById
+);
+
+// ============================================
+// ROTAS ADMIN - Gestão de promoções
+// ============================================
+
+router.use(authMiddleware);
+router.use(adminMiddleware);
+
+// POST /api/promotions - Criar promoção (ADMIN)
 router.post(
   '/',
   validate([
@@ -23,23 +60,11 @@ router.post(
   promotionsController.create
 );
 
-// GET /api/promotions - Listar promoções
-router.get('/', promotionsController.list);
-
-// GET /api/promotions/:id - Detalhes da promoção
-router.get(
-  '/:id',
-  validate([
-    param('id').isUUID().withMessage('ID inválido'),
-  ]),
-  promotionsController.getById
-);
-
-// PUT /api/promotions/:id - Atualizar promoção
+// PUT /api/promotions/:id - Atualizar promoção (ADMIN)
 router.put(
   '/:id',
   validate([
-    param('id').isUUID(),
+    param('id').isUUID().withMessage('ID inválido'),
     body('name').optional().notEmpty(),
     body('startDate').optional().isISO8601(),
     body('endDate').optional().isISO8601(),
@@ -48,22 +73,13 @@ router.put(
   promotionsController.update
 );
 
-// DELETE /api/promotions/:id - Deletar promoção
+// DELETE /api/promotions/:id - Deletar promoção (ADMIN)
 router.delete(
   '/:id',
   validate([
-    param('id').isUUID(),
+    param('id').isUUID().withMessage('ID inválido'),
   ]),
   promotionsController.delete
-);
-
-// GET /api/promotions/product/:productId/active - Promoção ativa do produto
-router.get(
-  '/product/:productId/active',
-  validate([
-    param('productId').isUUID(),
-  ]),
-  promotionsController.getActiveByProduct
 );
 
 export default router;

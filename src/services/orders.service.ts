@@ -1,5 +1,7 @@
 import prisma from '../lib/prisma';
 import { AppError } from '../middlewares/error.middleware';
+import emailService from './email.service';
+import { BRAZIL_MOBILE_REGEX, formatBrazilianCellPhone } from '../utils/phone';
 
 interface OrderFilters {
   page?: number;
@@ -96,6 +98,9 @@ class OrdersService {
       totalAmount: order.total, // Frontend espera totalAmount (número)
       subtotalAmount: order.subtotal,
       shippingAmount: order.shipping,
+      paymentStatus: order.payment?.status || order.paymentStatus || null,
+      paymentMethod: order.payment?.method || order.paymentMethod || null,
+      paymentPreferenceId: order.payment?.preferenceId || order.paymentPreferenceId || null,
     };
   }
 
@@ -184,6 +189,9 @@ class OrdersService {
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
+        include: {
+          payment: true,
+        },
       }),
       prisma.order.count({ where }),
       // Nova query: contar por status com os mesmos filtros de data/busca
@@ -319,6 +327,9 @@ class OrdersService {
   async getById(orderId: string) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
+      include: {
+        payment: true,
+      },
     });
 
     if (!order) {
@@ -329,12 +340,24 @@ class OrdersService {
     return this.transformOrder(order);
   }
 
-  async create(data: CreateOrderData, userId: string) {
+  async create(data: CreateOrderData, userId?: string) {
+    let normalizedPhone: string | null = null;
+
+    if (data.customerPhone) {
+      const formatted = formatBrazilianCellPhone(data.customerPhone);
+
+      if (!formatted || !BRAZIL_MOBILE_REGEX.test(formatted)) {
+        throw new AppError('Telefone do cliente inválido. Use o formato (XX) 9XXXX-XXXX', 400);
+      }
+
+      normalizedPhone = formatted;
+    }
+
     const order = await prisma.order.create({
       data: {
         customerName: data.customerName,
         customerEmail: data.customerEmail,
-        customerPhone: data.customerPhone,
+        customerPhone: normalizedPhone,
         items: data.items,
         subtotal: data.subtotal,
         shipping: data.shipping || 0,
@@ -343,16 +366,44 @@ class OrdersService {
       },
     });
 
-    // Criar notificação
-    await prisma.notification.create({
-      data: {
-        userId,
-        type: 'NEW_ORDER',
-        title: 'Novo pedido recebido',
-        message: `Pedido #${order.orderNumber} de ${data.customerName}`,
-        data: { orderId: order.id },
-      },
-    });
+    // Criar notificações para administradores
+    const notificationPayload = {
+      type: 'NEW_ORDER' as const,
+      title: 'Novo pedido recebido',
+      message: `Pedido #${order.orderNumber} de ${data.customerName}`,
+      data: { orderId: order.id },
+    };
+
+    if (userId) {
+      await prisma.notification.create({
+        data: {
+          userId,
+          ...notificationPayload,
+        },
+      });
+    } else {
+      const admins = await prisma.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true },
+      });
+
+      if (admins.length === 0) {
+        console.warn('[OrdersService] Nenhum admin encontrado para notificar novo pedido');
+      } else {
+        await prisma.notification.createMany({
+          data: admins.map((admin) => ({
+            userId: admin.id,
+            ...notificationPayload,
+          })),
+        });
+      }
+    }
+
+    if (order.customerEmail) {
+      emailService
+        .sendOrderConfirmation(order)
+        .catch((error) => console.error('Erro ao enviar email de confirmação de pedido:', error));
+    }
 
     // Transformar para o formato esperado pelo frontend
     return this.transformOrder(order);
@@ -391,6 +442,98 @@ class OrdersService {
 
     // Transformar para o formato esperado pelo frontend
     return this.transformOrder(updatedOrder);
+  }
+
+  async delete(orderId: string) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new AppError('Pedido não encontrado', 404);
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.purchaseHistory.deleteMany({ where: { orderId } });
+      await tx.payment.deleteMany({ where: { orderId } });
+      await tx.order.delete({ where: { id: orderId } });
+    });
+
+    return { success: true };
+  }
+
+  // ============================================
+  // MÉTODOS PÚBLICOS (Cliente)
+  // ============================================
+
+  async trackOrder(orderId: string, email: string) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new AppError('Pedido não encontrado', 404);
+    }
+
+    // Verificar se o email corresponde ao pedido
+    if (order.customerEmail?.toLowerCase() !== email.toLowerCase()) {
+      throw new AppError('Email não corresponde ao pedido', 403);
+    }
+
+    // Retornar informações de rastreamento (dados limitados)
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      trackingCode: order.trackingCode,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      total: order.total,
+      items: order.items,
+    };
+  }
+
+  async getMyOrders(email: string, filters: { page: number; limit: number }) {
+    const { page, limit } = filters;
+    const skip = (page - 1) * limit;
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where: {
+          customerEmail: {
+            equals: email,
+            mode: 'insensitive',
+          },
+        },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          payment: true,
+        },
+      }),
+      prisma.order.count({
+        where: {
+          customerEmail: {
+            equals: email,
+            mode: 'insensitive',
+          },
+        },
+      }),
+    ]);
+
+    // Transformar pedidos para o formato esperado
+    const transformedOrders = orders.map((order: any) => this.transformOrder(order));
+
+    return {
+      orders: transformedOrders,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
   }
 }
 

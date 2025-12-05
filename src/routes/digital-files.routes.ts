@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body, param } from 'express-validator';
 import { authMiddleware, adminMiddleware } from '../middlewares/auth.middleware';
-import { upload } from '../middlewares/upload.middleware';
+import { uploadDigital } from '../middlewares/upload.middleware';
 import { validate } from '../utils/validate';
 import digitalFileController from '../controllers/digital-file.controller';
 import 'express-async-errors';
@@ -40,7 +40,7 @@ router.use(adminMiddleware);
 // POST /api/digital-files/:productId - Adicionar arquivo digital
 router.post(
   '/:productId',
-  upload.single('file'),
+  uploadDigital.single('file'),
   validate([
     param('productId').isUUID().withMessage('ID do produto inválido'),
     body('name').notEmpty().withMessage('Nome do arquivo obrigatório'),

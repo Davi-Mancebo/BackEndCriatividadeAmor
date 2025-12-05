@@ -36,25 +36,51 @@ const storage = multer.diskStorage({
   },
 });
 
-// Filtro de tipos de arquivo
-const fileFilter = (
+const imageMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const digitalMimes = [
+  'application/pdf',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-rar-compressed',
+];
+
+const buildFilter = (allowedMimes: string[], errorMessage: string) => (
   req: Request,
   file: Express.Multer.File,
   cb: multer.FileFilterCallback
 ) => {
-  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Formato de imagem inválido. Use JPEG, PNG ou WebP.'));
+    cb(new Error(errorMessage));
   }
 };
 
-export const upload = multer({
+const imageFileFilter = buildFilter(
+  imageMimes,
+  'Formato de imagem inválido. Use JPEG, PNG ou WebP.'
+);
+
+const digitalFileFilter = buildFilter(
+  digitalMimes,
+  'Formato inválido. Envie arquivos PDF ou ZIP.'
+);
+
+const imageUpload = multer({
   storage,
-  fileFilter,
+  fileFilter: imageFileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
   },
 });
+
+const digitalUpload = multer({
+  storage,
+  fileFilter: digitalFileFilter,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB para arquivos digitais
+  },
+});
+
+export const upload = imageUpload;
+export const uploadDigital = digitalUpload;

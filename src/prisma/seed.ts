@@ -22,6 +22,22 @@ async function main() {
 
   console.log('✅ Usuário admin criado:', admin.email);
 
+  // Criar usuário comum para testes
+  const customerPassword = await bcrypt.hash('cliente123', 10);
+  
+  const customer = await prisma.user.upsert({
+    where: { email: 'cliente@criatividade.com' },
+    update: {},
+    create: {
+      name: 'Cliente Teste',
+      email: 'cliente@criatividade.com',
+      password: customerPassword,
+      role: 'CUSTOMER',
+    },
+  });
+
+  console.log('✅ Usuário cliente criado:', customer.email);
+
   // Criar produtos de exemplo
   const products = await Promise.all([
     prisma.product.create({

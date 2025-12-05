@@ -1,14 +1,15 @@
+import { Prisma, NotificationType } from '@prisma/client';
 import prisma from '../lib/prisma';
+import notificationsService from './notifications.service';
 
 class ReviewsService {
   async create(data: {
     productId: string;
     customerId?: string;
-    customerName: string;
-    customerEmail: string;
+    customerName?: string;
+    customerEmail?: string;
     rating: number;
     comment?: string;
-    verified?: boolean;
   }) {
     // Verificar se produto existe
     const product = await prisma.product.findUnique({
@@ -19,29 +20,75 @@ class ReviewsService {
       throw new Error('Produto não encontrado');
     }
 
-    // Verificar se cliente já avaliou este produto
-    if (data.customerId) {
-      const existingReview = await prisma.review.findFirst({
-        where: {
-          productId: data.productId,
-          customerId: data.customerId
-        }
+    let resolvedCustomerId = data.customerId;
+    let resolvedCustomerName = data.customerName;
+    let resolvedCustomerEmail = data.customerEmail?.trim();
+
+    if (resolvedCustomerId) {
+      const customer = await prisma.customer.findUnique({
+        where: { id: resolvedCustomerId }
       });
 
-      if (existingReview) {
-        throw new Error('Você já avaliou este produto');
+      if (!customer) {
+        throw new Error('Cliente não encontrado');
       }
+
+      resolvedCustomerName = customer.name;
+      resolvedCustomerEmail = customer.email;
     }
 
-    return await prisma.review.create({
+    if (!resolvedCustomerEmail) {
+      throw new Error('Email do cliente é obrigatório para criar a avaliação');
+    }
+
+    // Impede avaliações de quem não comprou o produto
+    const purchaseRecord = await prisma.purchaseHistory.findFirst({
+      where: {
+        productId: data.productId,
+        customerEmail: {
+          equals: resolvedCustomerEmail,
+          mode: 'insensitive'
+        }
+      }
+    });
+
+    if (!purchaseRecord) {
+      throw new Error('Apenas clientes que compraram este produto podem avaliá-lo');
+    }
+
+    const duplicateConditions: Prisma.ReviewWhereInput[] = [];
+
+    if (resolvedCustomerId) {
+      duplicateConditions.push({ customerId: resolvedCustomerId });
+    }
+
+    duplicateConditions.push({
+      customerEmail: {
+        equals: resolvedCustomerEmail,
+        mode: 'insensitive'
+      }
+    });
+
+    const duplicateReview = await prisma.review.findFirst({
+      where: {
+        productId: data.productId,
+        OR: duplicateConditions
+      }
+    });
+
+    if (duplicateReview) {
+      throw new Error('Você já avaliou este produto');
+    }
+
+    const review = await prisma.review.create({
       data: {
         productId: data.productId,
-        customerId: data.customerId,
-        customerName: data.customerName,
-        customerEmail: data.customerEmail,
+        customerId: resolvedCustomerId,
+        customerName: resolvedCustomerName || purchaseRecord.customerName,
+        customerEmail: resolvedCustomerEmail,
         rating: data.rating,
         comment: data.comment,
-        verified: data.verified || false
+        verified: true
       },
       include: {
         customer: {
@@ -52,6 +99,19 @@ class ReviewsService {
         }
       }
     });
+
+    await notificationsService.notifyAdmins({
+      type: NotificationType.REVIEW,
+      title: `Nova avaliação em ${product.title}`,
+      message: `${review.customerName} avaliou este produto com ${review.rating} estrela(s).`,
+      data: {
+        reviewId: review.id,
+        productId: product.id,
+        rating: review.rating,
+      },
+    });
+
+    return review;
   }
 
   async getByProduct(productId: string) {
@@ -108,10 +168,73 @@ class ReviewsService {
       throw new Error('Avaliação não encontrada');
     }
 
-    return await prisma.review.update({
+    const product = await prisma.product.findUnique({
+      where: { id: review.productId },
+      select: { title: true },
+    });
+
+    const updatedReview = await prisma.review.update({
       where: { id },
       data
     });
+
+    await notificationsService.notifyAdmins({
+      type: NotificationType.REVIEW,
+      title: `Avaliação atualizada${product?.title ? ` em ${product.title}` : ''}`,
+      message: `${review.customerName} teve sua avaliação revisada.`,
+      data: {
+        reviewId: updatedReview.id,
+        productId: review.productId,
+        rating: data.rating ?? updatedReview.rating,
+      },
+    });
+
+    return updatedReview;
+  }
+
+  async getCustomerReview(productId: string, customerId: string) {
+    return prisma.review.findFirst({
+      where: {
+        productId,
+        customerId
+      }
+    });
+  }
+
+  async updateCustomerReview(productId: string, customerId: string, data: { rating?: number; comment?: string }) {
+    const review = await prisma.review.findFirst({
+      where: {
+        productId,
+        customerId
+      }
+    });
+
+    if (!review) {
+      throw new Error('Avaliação não encontrada');
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: review.productId },
+      select: { title: true },
+    });
+
+    const updated = await prisma.review.update({
+      where: { id: review.id },
+      data
+    });
+
+    await notificationsService.notifyAdmins({
+      type: NotificationType.REVIEW,
+      title: `Cliente editou a avaliação${product?.title ? ` de ${product.title}` : ''}`,
+      message: `${review.customerName} ajustou a avaliação deste produto.`,
+      data: {
+        reviewId: updated.id,
+        productId: review.productId,
+        rating: data.rating ?? updated.rating,
+      },
+    });
+
+    return updated;
   }
 
   async delete(id: string) {

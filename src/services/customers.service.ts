@@ -1,6 +1,57 @@
+import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
+import emailService from './email.service';
+import { AppError } from '../middlewares/error.middleware';
+import { BRAZIL_MOBILE_REGEX, formatBrazilianCellPhone } from '../utils/phone';
 
 class CustomersService {
+  async register(data: { name: string; email: string; password: string; phone?: string | null }) {
+    const normalizedEmail = data.email.trim().toLowerCase();
+
+    const existingCustomer = await prisma.customer.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (existingCustomer) {
+      throw new AppError('Email já cadastrado', 409);
+    }
+
+    let formattedPhone: string | null = null;
+
+    if (data.phone !== undefined && data.phone !== null && data.phone !== '') {
+      const output = formatBrazilianCellPhone(data.phone);
+      if (!output || !BRAZIL_MOBILE_REGEX.test(output)) {
+        throw new AppError('Telefone inválido. Use o formato (XX) 9XXXX-XXXX', 400);
+      }
+      formattedPhone = output;
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    const customer = await prisma.customer.create({
+      data: {
+        name: data.name.trim(),
+        email: normalizedEmail,
+        password: hashedPassword,
+        phone: formattedPhone,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        avatar: true,
+        createdAt: true,
+      },
+    });
+
+    emailService
+      .sendWelcomeEmail({ name: customer.name, email: customer.email })
+      .catch((error) => console.error('Erro ao enviar email de boas-vindas:', error));
+
+    return customer;
+  }
+
   async list(filters?: { search?: string; page?: number; limit?: number }) {
     const page = filters?.page || 1;
     const limit = filters?.limit || 10;
@@ -133,6 +184,79 @@ class CustomersService {
         totalReviews: stats[2]
       }
     };
+  }
+
+  async update(id: string, data: { name?: string; email?: string; phone?: string | null; password?: string; avatar?: string | null }) {
+    const customer = await prisma.customer.findUnique({ where: { id } });
+
+    if (!customer) {
+      throw new AppError('Cliente não encontrado', 404);
+    }
+
+    let formattedPhone: string | null | undefined = undefined;
+
+    if (data.phone !== undefined) {
+      if (data.phone === null || data.phone === '') {
+        formattedPhone = null;
+      } else {
+        const normalized = formatBrazilianCellPhone(data.phone);
+
+        if (!normalized || !BRAZIL_MOBILE_REGEX.test(normalized)) {
+          throw new AppError('Telefone inválido. Use o formato (XX) 9XXXX-XXXX', 400);
+        }
+
+        formattedPhone = normalized;
+      }
+    }
+
+    if (data.email && data.email.trim().toLowerCase() !== customer.email) {
+      const existingCustomer = await prisma.customer.findUnique({
+        where: { email: data.email.trim().toLowerCase() },
+      });
+
+      if (existingCustomer && existingCustomer.id !== id) {
+        throw new AppError('Email já cadastrado', 409);
+      }
+    }
+
+    const updatePayload: Record<string, unknown> = {};
+
+    if (data.name !== undefined) {
+      updatePayload.name = data.name.trim();
+    }
+
+    if (data.email !== undefined) {
+      updatePayload.email = data.email.trim().toLowerCase();
+    }
+
+    if (formattedPhone !== undefined) {
+      updatePayload.phone = formattedPhone;
+    }
+
+    if (data.avatar !== undefined) {
+      updatePayload.avatar = data.avatar;
+    }
+
+    if (data.password) {
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+      updatePayload.password = hashedPassword;
+    }
+
+    const updatedCustomer = await prisma.customer.update({
+      where: { id },
+      data: updatePayload,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        avatar: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return updatedCustomer;
   }
 
   async getStats() {

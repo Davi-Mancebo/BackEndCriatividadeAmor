@@ -43,6 +43,34 @@ class OrdersController {
     const updatedOrder = await ordersService.update(req.params.id, { status, trackingCode, notes }, req.userId!);
     res.json(updatedOrder);
   }
+
+  async delete(req: AuthRequest, res: Response) {
+    await ordersService.delete(req.params.id);
+    res.status(204).send();
+  }
+
+  // ============================================
+  // MÉTODOS PÚBLICOS (Cliente)
+  // ============================================
+
+  async trackOrder(req: AuthRequest, res: Response) {
+    const { id } = req.params;
+    const { email } = req.query;
+    
+    const order = await ordersService.trackOrder(id, email as string);
+    res.json(order);
+  }
+
+  async getMyOrders(req: AuthRequest, res: Response) {
+    const { email } = req.query;
+    const filters = {
+      page: parseInt(req.query.page as string) || 1,
+      limit: parseInt(req.query.limit as string) || 10,
+    };
+
+    const result = await ordersService.getMyOrders(email as string, filters);
+    res.json(result);
+  }
 }
 
 export default new OrdersController();

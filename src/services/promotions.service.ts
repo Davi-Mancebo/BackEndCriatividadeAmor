@@ -66,6 +66,11 @@ class PromotionsService {
       throw new AppError('Informe apenas discountPercent OU discountAmount, não ambos', 400);
     }
 
+    // Validar percentual
+    if (data.discountPercent && (data.discountPercent <= 0 || data.discountPercent > 100)) {
+      throw new AppError('Desconto percentual deve ser entre 0 e 100', 400);
+    }
+
     // Validar datas
     if (data.endDate <= data.startDate) {
       throw new AppError('Data de fim deve ser posterior à data de início', 400);
@@ -74,10 +79,32 @@ class PromotionsService {
     // Verificar se produto existe
     const product = await prisma.product.findUnique({
       where: { id: data.productId },
+      select: { id: true, title: true, price: true },
     });
 
     if (!product) {
       throw new AppError('Produto não encontrado', 404);
+    }
+
+    // Verificar conflito de promoções ativas no mesmo período
+    const conflictingPromotion = await prisma.promotion.findFirst({
+      where: {
+        productId: data.productId,
+        active: true,
+        OR: [
+          {
+            startDate: { lte: data.endDate },
+            endDate: { gte: data.startDate },
+          },
+        ],
+      },
+    });
+
+    if (conflictingPromotion) {
+      throw new AppError(
+        `Já existe uma promoção ativa para este produto no período selecionado (${new Date(conflictingPromotion.startDate).toLocaleDateString()} - ${new Date(conflictingPromotion.endDate).toLocaleDateString()})`,
+        400
+      );
     }
 
     const promotion = await prisma.promotion.create({
@@ -126,20 +153,61 @@ class PromotionsService {
             id: true,
             title: true,
             price: true,
+            images: {
+              where: { order: 0 },
+              take: 1,
+              select: { url: true, alt: true },
+            },
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { startDate: 'desc' },
     });
 
-    return promotions;
+    // Calcular preços finais
+    const promotionsWithPrices = promotions.map(promo => {
+      const product = promo.product;
+      let finalPrice = product.price;
+
+      if (promo.discountPercent) {
+        finalPrice = product.price * (1 - promo.discountPercent / 100);
+      } else if (promo.discountAmount) {
+        finalPrice = Math.max(0, product.price - promo.discountAmount);
+      }
+
+      return {
+        ...promo,
+        product: {
+          ...product,
+          finalPrice: Math.round(finalPrice * 100) / 100,
+          savings: Math.round((product.price - finalPrice) * 100) / 100,
+        },
+      };
+    });
+
+    return promotionsWithPrices;
   }
 
   async getById(promotionId: string) {
     const promotion = await prisma.promotion.findUnique({
       where: { id: promotionId },
       include: {
-        product: true,
+        product: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            price: true,
+            stock: true,
+            category: true,
+            featured: true,
+            active: true,
+            images: {
+              orderBy: { order: 'asc' },
+              select: { id: true, url: true, alt: true, order: true },
+            },
+          },
+        },
       },
     });
 
@@ -147,7 +215,32 @@ class PromotionsService {
       throw new AppError('Promoção não encontrada', 404);
     }
 
-    return promotion;
+    // Calcular preço final
+    const product = promotion.product;
+    let finalPrice = product.price;
+
+    if (promotion.discountPercent) {
+      finalPrice = product.price * (1 - promotion.discountPercent / 100);
+    } else if (promotion.discountAmount) {
+      finalPrice = Math.max(0, product.price - promotion.discountAmount);
+    }
+
+    // Verificar se está ativa no momento atual
+    const now = new Date();
+    const isCurrentlyActive = 
+      promotion.active && 
+      promotion.startDate <= now && 
+      promotion.endDate >= now;
+
+    return {
+      ...promotion,
+      isCurrentlyActive,
+      product: {
+        ...product,
+        finalPrice: Math.round(finalPrice * 100) / 100,
+        savings: Math.round((product.price - finalPrice) * 100) / 100,
+      },
+    };
   }
 
   async update(promotionId: string, data: UpdatePromotionData) {
@@ -159,16 +252,61 @@ class PromotionsService {
       throw new AppError('Promoção não encontrada', 404);
     }
 
+    // Validar percentual se fornecido
+    if (data.discountPercent !== undefined && (data.discountPercent <= 0 || data.discountPercent > 100)) {
+      throw new AppError('Desconto percentual deve ser entre 0 e 100', 400);
+    }
+
+    // Validar datas se ambas forem fornecidas
+    const startDate = data.startDate || promotion.startDate;
+    const endDate = data.endDate || promotion.endDate;
+    if (endDate <= startDate) {
+      throw new AppError('Data de fim deve ser posterior à data de início', 400);
+    }
+
+    // Verificar conflito de promoções se as datas mudarem ou se reativar
+    if (data.startDate || data.endDate || data.active === true) {
+      const conflictingPromotion = await prisma.promotion.findFirst({
+        where: {
+          productId: promotion.productId,
+          id: { not: promotionId },
+          active: true,
+          OR: [
+            {
+              startDate: { lte: endDate },
+              endDate: { gte: startDate },
+            },
+          ],
+        },
+      });
+
+      if (conflictingPromotion) {
+        throw new AppError(
+          `Conflito com promoção ativa existente no período`,
+          400
+        );
+      }
+    }
+
+    // Preparar dados de atualização
+    const updateData: any = {};
+    if (data.name) updateData.name = data.name;
+    if (data.startDate) updateData.startDate = data.startDate;
+    if (data.endDate) updateData.endDate = data.endDate;
+    if (data.active !== undefined) updateData.active = data.active;
+
+    // Atualizar desconto apenas se fornecido
+    if (data.discountPercent !== undefined) {
+      updateData.discountPercent = data.discountPercent;
+      updateData.discountAmount = null;
+    } else if (data.discountAmount !== undefined) {
+      updateData.discountAmount = data.discountAmount;
+      updateData.discountPercent = null;
+    }
+
     const updatedPromotion = await prisma.promotion.update({
       where: { id: promotionId },
-      data: {
-        ...(data.name && { name: data.name }),
-        ...(data.startDate && { startDate: data.startDate }),
-        ...(data.endDate && { endDate: data.endDate }),
-        ...(data.active !== undefined && { active: data.active }),
-        ...(data.discountPercent !== undefined && { discountPercent: data.discountPercent, discountAmount: null }),
-        ...(data.discountAmount !== undefined && { discountAmount: data.discountAmount, discountPercent: null }),
-      },
+      data: updateData,
     });
 
     return updatedPromotion;

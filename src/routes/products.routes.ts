@@ -8,10 +8,7 @@ import productImagesController from '../controllers/product-images.controller';
 
 const router = Router();
 
-// Todas as rotas precisam de autenticação
-router.use(authMiddleware);
-
-// GET /api/products - Listar produtos
+// GET /api/products - Listar produtos (PÚBLICA)
 router.get(
   '/',
   validate([
@@ -27,7 +24,7 @@ router.get(
   productsController.list
 );
 
-// GET /api/products/:id - Detalhes do produto
+// GET /api/products/:id - Detalhes do produto (PÚBLICA)
 router.get(
   '/:id',
   validate([
@@ -36,7 +33,7 @@ router.get(
   productsController.getById
 );
 
-// GET /api/products/:id/reviews - Buscar avaliações de um produto
+// GET /api/products/:id/reviews - Buscar avaliações de um produto (PÚBLICA)
 import reviewsController from '../controllers/reviews.controller';
 router.get(
   '/:id/reviews',
@@ -46,9 +43,10 @@ router.get(
   reviewsController.getByProduct
 );
 
-// POST /api/products - Criar produto
+// POST /api/products - Criar produto (PROTEGIDA)
 router.post(
   '/',
+  authMiddleware,
   validate([
     body('title').notEmpty().withMessage('Título obrigatório'),
     body('price').isFloat({ min: 0 }).withMessage('Preço inválido'),
@@ -59,9 +57,10 @@ router.post(
   productsController.create
 );
 
-// PUT /api/products/:id - Atualizar produto
+// PUT /api/products/:id - Atualizar produto (PROTEGIDA)
 router.put(
   '/:id',
+  authMiddleware,
   validate([
     param('id').isUUID().withMessage('ID inválido'),
     body('title').optional().notEmpty(),
@@ -71,29 +70,32 @@ router.put(
   productsController.update
 );
 
-// DELETE /api/products/:id - Soft delete (desativar produto)
+// DELETE /api/products/:id - Soft delete (desativar produto) (PROTEGIDA)
 router.delete(
   '/:id',
+  authMiddleware,
   validate([
     param('id').isUUID().withMessage('ID inválido'),
   ]),
   productsController.delete
 );
 
-// DELETE /api/products/:id/permanent - Hard delete (deletar permanentemente)
+// DELETE /api/products/:id/permanent - Hard delete (deletar permanentemente) (PROTEGIDA)
 router.delete(
   '/:id/permanent',
+  authMiddleware,
   validate([
     param('id').isUUID().withMessage('ID inválido'),
   ]),
   productsController.permanentDelete
 );
 
-// ===== PRODUCT IMAGES ROUTES =====
+// ===== PRODUCT IMAGES ROUTES (TODAS PROTEGIDAS) =====
 
 // POST /api/products/:productId/images - Adicionar imagem ao produto
 router.post(
   '/:productId/images',
+  authMiddleware,
   upload.single('image'),
   validate([
     param('productId').isUUID().withMessage('ID do produto inválido'),
@@ -106,6 +108,7 @@ router.post(
 // POST /api/products/:productId/images/bulk - Adicionar múltiplas imagens
 router.post(
   '/:productId/images/bulk',
+  authMiddleware,
   upload.array('images', 10),
   validate([
     param('productId').isUUID().withMessage('ID do produto inválido'),
@@ -113,7 +116,7 @@ router.post(
   productImagesController.createBulk
 );
 
-// GET /api/products/:productId/images - Listar imagens do produto
+// GET /api/products/:productId/images - Listar imagens do produto (PÚBLICA)
 router.get(
   '/:productId/images',
   validate([
@@ -125,6 +128,7 @@ router.get(
 // PUT /api/products/:productId/images/reorder - Reordenar imagens
 router.put(
   '/:productId/images/reorder',
+  authMiddleware,
   validate([
     param('productId').isUUID(),
     body('imageIds').isArray({ min: 1 }).withMessage('imageIds deve ser um array não vazio'),
@@ -136,6 +140,7 @@ router.put(
 // PUT /api/products/:productId/images/:imageId - Atualizar imagem
 router.put(
   '/:productId/images/:imageId',
+  authMiddleware,
   validate([
     param('productId').isUUID(),
     param('imageId').isUUID(),
@@ -148,6 +153,7 @@ router.put(
 // DELETE /api/products/:productId/images/:imageId - Deletar imagem
 router.delete(
   '/:productId/images/:imageId',
+  authMiddleware,
   validate([
     param('productId').isUUID(),
     param('imageId').isUUID(),

@@ -1,5 +1,7 @@
 import prisma from '../lib/prisma';
 import { AppError } from '../middlewares/error.middleware';
+import emailService from './email.service';
+import { Order } from '@prisma/client';
 
 export class PaymentService {
   // Criar registro de pagamento
@@ -79,6 +81,8 @@ export class PaymentService {
       throw new AppError('Pagamento não encontrado', 404);
     }
 
+    let orderForEmail: Order | null = null;
+
     await prisma.$transaction(async (tx: any) => {
       // Atualizar pagamento
       await tx.payment.update({
@@ -96,6 +100,8 @@ export class PaymentService {
         where: { id: payment.orderId },
         data: { status: 'PAID' },
       });
+
+      orderForEmail = updatedOrder;
 
       // Criar histórico de compras para cada item
       const items = updatedOrder.items as any[];
@@ -129,6 +135,12 @@ export class PaymentService {
         });
       }
     });
+
+    if (orderForEmail) {
+      emailService
+        .sendPaymentConfirmation(orderForEmail)
+        .catch((error) => console.error('Erro ao enviar email de pagamento confirmado:', error));
+    }
 
     return await this.getPaymentById(paymentId);
   }

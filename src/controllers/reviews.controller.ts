@@ -1,14 +1,58 @@
 import { Request, Response } from 'express';
 import reviewsService from '../services/reviews.service';
+import { CustomerAuthRequest } from '../middlewares/auth.middleware';
 
 class ReviewsController {
-  async create(req: Request, res: Response) {
+  async create(req: CustomerAuthRequest, res: Response) {
     try {
-      const review = await reviewsService.create(req.body);
+      const review = await reviewsService.create({
+        ...req.body,
+        customerId: req.customerId
+      });
       res.status(201).json(review);
     } catch (error: any) {
       console.error('Erro ao criar avaliação:', error);
       res.status(400).json({ error: error.message || 'Erro ao criar avaliação' });
+    }
+  }
+
+  async getOwnReview(req: CustomerAuthRequest, res: Response) {
+    try {
+      const { productId } = req.params;
+      const customerId = req.customerId;
+
+      if (!customerId) {
+        return res.status(401).json({ error: 'Cliente não autenticado' });
+      }
+
+      const review = await reviewsService.getCustomerReview(productId, customerId);
+
+      if (!review) {
+        return res.status(404).json({ error: 'Avaliação não encontrada' });
+      }
+
+      res.json(review);
+    } catch (error: any) {
+      console.error('Erro ao buscar avaliação do cliente:', error);
+      res.status(500).json({ error: error.message || 'Erro ao buscar avaliação' });
+    }
+  }
+
+  async updateOwnReview(req: CustomerAuthRequest, res: Response) {
+    try {
+      const { productId } = req.params;
+      const customerId = req.customerId;
+
+      if (!customerId) {
+        return res.status(401).json({ error: 'Cliente não autenticado' });
+      }
+
+      const review = await reviewsService.updateCustomerReview(productId, customerId, req.body);
+      res.json(review);
+    } catch (error: any) {
+      console.error('Erro ao atualizar avaliação do cliente:', error);
+      const statusCode = error.message === 'Avaliação não encontrada' ? 404 : 400;
+      res.status(statusCode).json({ error: error.message || 'Erro ao atualizar avaliação' });
     }
   }
 

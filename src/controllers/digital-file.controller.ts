@@ -15,8 +15,12 @@ export class DigitalFileController {
         throw new AppError('Email obrigatório para download', 400);
       }
 
-      // Buscar produto e arquivos
+      // Buscar produto e arquivos válidos
       const { product, files } = await digitalFileService.getActiveFiles(productId);
+
+      if (!files.length) {
+        throw new AppError('Nenhum arquivo digital válido disponível para este produto.', 404);
+      }
 
       // Verificar compra
       const purchase = await digitalFileService.checkPurchase(email as string, productId);
@@ -25,7 +29,7 @@ export class DigitalFileController {
         throw new AppError('Você não comprou este produto', 403);
       }
 
-      // Incrementar contador
+      // Incrementar contador apenas quando existir arquivo válido
       await digitalFileService.incrementDownloadCount(productId);
 
       res.json({

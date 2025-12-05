@@ -1,3 +1,4 @@
+import { NotificationType } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { AppError } from '../middlewares/error.middleware';
 
@@ -83,6 +84,27 @@ class NotificationsService {
     });
 
     return { message: 'Notificação deletada com sucesso' };
+  }
+
+  async notifyAdmins(payload: { type: NotificationType; title: string; message: string; data?: any }) {
+    const admins = await prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { id: true },
+    });
+
+    if (!admins.length) {
+      return;
+    }
+
+    await prisma.notification.createMany({
+      data: admins.map((admin) => ({
+        userId: admin.id,
+        type: payload.type,
+        title: payload.title,
+        message: payload.message,
+        data: payload.data ?? null,
+      })),
+    });
   }
 }
 

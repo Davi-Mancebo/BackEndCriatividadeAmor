@@ -20,7 +20,7 @@ interface MercadoPagoPreferenceData {
     name: string;
     email: string;
     phone?: {
-      number: string;
+      number: number;
     };
   };
   back_urls: {
@@ -46,8 +46,15 @@ interface MercadoPagoPreferenceData {
 export class MercadoPagoService {
   private mercadopago: any;
   private isConfigured: boolean = false;
+  private backUrlBase: string;
+  private notificationUrl: string;
 
   constructor() {
+    this.backUrlBase = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const backendBase = process.env.BACKEND_PUBLIC_URL
+      || process.env.BACKEND_URL
+      || 'http://localhost:3333';
+    this.notificationUrl = `${backendBase.replace(/\/$/, '')}/api/payments/webhook`;
     this.initialize();
   }
 
@@ -91,30 +98,52 @@ export class MercadoPagoService {
     this.checkConfiguration();
 
     const preference: MercadoPagoPreferenceData = {
-      items: order.items.map((item: any) => ({
-        id: item.productId,
-        title: item.title,
-        description: item.title,
-        picture_url: item.image,
-        category_id: 'art',
-        quantity: item.quantity,
-        unit_price: item.price,
-      })),
+      items: order.items.map((item: any, index: number) => {
+        const fallbackTitle = `Produto ${index + 1}`;
+        const title = item?.title || item?.name || item?.productName || fallbackTitle;
+        const picture = item?.image || item?.picture_url || item?.cover;
+        const unitPrice = typeof item?.price === 'number' ? item.price : Number(item?.price) || 0;
+
+        if (!title) {
+          console.warn('[MercadoPago] Item sem título detectado', { orderId: order.id, index });
+        }
+
+        return {
+          id: item?.productId || `item-${index}`,
+          title,
+          description: title,
+          picture_url: picture,
+          category_id: 'art',
+          quantity: item?.quantity || 1,
+          unit_price: unitPrice,
+        };
+      }),
       payer: {
         name: order.customerName,
         email: order.customerEmail,
-        phone: order.customerPhone ? {
-          number: order.customerPhone,
-        } : undefined,
+        phone: (() => {
+          if (!order.customerPhone) {
+            return undefined;
+          }
+
+          const numericPhone = String(order.customerPhone).replace(/\D/g, '');
+          if (!numericPhone) {
+            return undefined;
+          }
+
+          return {
+            number: Number(numericPhone),
+          };
+        })(),
       },
       back_urls: {
-        success: `${process.env.FRONTEND_URL}/payment/success`,
-        failure: `${process.env.FRONTEND_URL}/payment/failure`,
-        pending: `${process.env.FRONTEND_URL}/payment/pending`,
+        success: `${this.backUrlBase}/payment/success`,
+        failure: `${this.backUrlBase}/payment/failure`,
+        pending: `${this.backUrlBase}/payment/pending`,
       },
       auto_return: 'approved',
       external_reference: order.id,
-      notification_url: `${process.env.BACKEND_URL}/api/payments/webhook`,
+      notification_url: this.notificationUrl,
       statement_descriptor: 'Criatividade com Amor',
       payment_methods: {
         excluded_payment_methods: [],

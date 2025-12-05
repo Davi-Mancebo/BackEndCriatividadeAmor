@@ -1,5 +1,6 @@
 // Centralizando todas as rotas em um único arquivo
 export { default as authRoutes } from './auth.routes';
+export { default as customerAuthRoutes } from './customer-auth.routes';
 export { default as notificationsRoutes } from './notifications.routes';
 export { default as ordersRoutes } from './orders.routes';
 export { default as productsRoutes } from './products.routes'; // Inclui rotas de product-images

@@ -2,6 +2,17 @@ import { Request, Response } from 'express';
 import customersService from '../services/customers.service';
 
 class CustomersController {
+  async register(req: Request, res: Response) {
+    try {
+      const { name, email, password, phone } = req.body;
+      const customer = await customersService.register({ name, email, password, phone });
+      res.status(201).json(customer);
+    } catch (error: any) {
+      console.error('Erro ao registrar cliente:', error);
+      res.status(error.statusCode || 400).json({ error: error.message || 'Erro ao registrar cliente' });
+    }
+  }
+
   async list(req: Request, res: Response) {
     try {
       const { search, page, limit } = req.query;
@@ -24,6 +35,18 @@ class CustomersController {
     } catch (error: any) {
       console.error('Erro ao buscar cliente:', error);
       res.status(404).json({ error: error.message || 'Cliente não encontrado' });
+    }
+  }
+
+  async update(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      console.info('[CustomersController] Update requested', { id });
+      const updated = await customersService.update(id, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error('Erro ao atualizar cliente:', error);
+      res.status(error.statusCode || 400).json({ error: error.message || 'Erro ao atualizar cliente' });
     }
   }
 

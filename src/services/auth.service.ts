@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 import { AppError } from '../middlewares/error.middleware';
+import { BRAZIL_MOBILE_REGEX, formatBrazilianCellPhone } from '../utils/phone';
 
 interface LoginData {
   email: string;
@@ -19,7 +20,8 @@ interface UpdateProfileData {
 
 class AuthService {
   async login(data: LoginData) {
-    const { email, password } = data;
+    const email = data.email.trim().toLowerCase();
+    const { password } = data;
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -36,7 +38,11 @@ class AuthService {
     }
 
     const token = jwt.sign(
-      { userId: user.id },
+      {
+        userId: user.id,
+        role: user.role,
+        type: 'admin',
+      },
       process.env.JWT_SECRET as string
     );
 
@@ -102,13 +108,29 @@ class AuthService {
       });
     }
 
+    let normalizedPhone: string | null | undefined = undefined;
+
+    if (phone !== undefined) {
+      if (phone === null || phone === '') {
+        normalizedPhone = null;
+      } else {
+        const formattedPhone = formatBrazilianCellPhone(phone);
+
+        if (!formattedPhone || !BRAZIL_MOBILE_REGEX.test(formattedPhone)) {
+          throw new AppError('Telefone inválido. Use o formato (XX) 9XXXX-XXXX', 400);
+        }
+
+        normalizedPhone = formattedPhone;
+      }
+    }
+
     // Atualizar outros campos
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         ...(name && { name }),
         ...(email && { email }),
-        ...(phone !== undefined && { phone }),
+        ...(normalizedPhone !== undefined && { phone: normalizedPhone }),
         ...(avatar !== undefined && { avatar }),
       },
       select: {

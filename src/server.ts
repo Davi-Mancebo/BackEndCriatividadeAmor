@@ -9,6 +9,7 @@ import { errorHandler } from './middlewares/error.middleware';
 // Rotas (importação centralizada)
 import {
   authRoutes,
+  customerAuthRoutes,
   notificationsRoutes,
   ordersRoutes,
   productsRoutes,
@@ -26,9 +27,24 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3333;
 
-// Middlewares
+// Configuração dinâmica de CORS para múltiplas origens (localhost + túnel, por exemplo)
+const allowedOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 
@@ -45,6 +61,7 @@ app.get('/health', (req, res) => {
 
 // Rotas da API
 app.use('/api/auth', authRoutes);
+app.use('/api/customers/auth', customerAuthRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/products', productsRoutes); // Inclui rotas de imagens de produtos
 app.use('/api/promotions', promotionsRoutes);

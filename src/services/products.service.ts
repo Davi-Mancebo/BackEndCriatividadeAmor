@@ -96,13 +96,34 @@ class ProductsService {
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
+          reviews: {
+            where: { verified: true },
+            select: {
+              rating: true,
+            },
+          },
         },
       }),
       prisma.product.count({ where }),
     ]);
 
+    // Calcular estatísticas de reviews
+    const productsWithStats = products.map(product => {
+      const reviewCount = product.reviews.length;
+      const averageRating = reviewCount > 0
+        ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
+        : 0;
+
+      return {
+        ...product,
+        reviewCount,
+        averageRating: Math.round(averageRating * 10) / 10,
+        rating: averageRating, // Alias para compatibilidade
+      };
+    });
+
     return {
-      products,
+      products: productsWithStats,
       pagination: {
         page,
         limit,
@@ -129,6 +150,12 @@ class ProductsService {
           },
           orderBy: { createdAt: 'desc' },
         },
+        reviews: {
+          where: { verified: true },
+          select: {
+            rating: true,
+          },
+        },
       },
     });
 
@@ -136,7 +163,18 @@ class ProductsService {
       throw new AppError('Produto não encontrado', 404);
     }
 
-    return product;
+    // Calcular estatísticas de reviews
+    const reviewCount = product.reviews.length;
+    const averageRating = reviewCount > 0
+      ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
+      : 0;
+
+    return {
+      ...product,
+      reviewCount,
+      averageRating: Math.round(averageRating * 10) / 10,
+      rating: averageRating,
+    };
   }
 
   async create(data: CreateProductData, userId: string) {
