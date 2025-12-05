@@ -33,13 +33,26 @@ const allowedOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL ||
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const isAllowedOrigin = (origin?: string) => {
+  if (!origin) return true; // mobile apps / curl
+
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  const localhostPattern = /^https?:\/\/localhost(?::\d+)?$/i;
+  const ngrokPattern = /^https?:\/\/.+\.ngrok-free\.dev$/i;
+
+  if (localhostPattern.test(origin) || ngrokPattern.test(origin)) {
+    return true;
+  }
+
+  return false;
+};
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin || undefined)) {
       return callback(null, true);
     }
 

@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import digitalFileService from '../services/digital-file.service';
-import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinary';
+import { uploadToCloudinary, deleteFromCloudinary, generateSignedDownloadUrl } from '../utils/cloudinary';
 import { AppError } from '../middlewares/error.middleware';
 
 export class DigitalFileController {
@@ -18,6 +18,13 @@ export class DigitalFileController {
       // Buscar produto e arquivos válidos
       const { product, files } = await digitalFileService.getActiveFiles(productId);
 
+      console.log('[DigitalFiles] Arquivos ativos no banco:', files.map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        url: file.fileUrl,
+        type: file.fileType,
+      })));
+
       if (!files.length) {
         throw new AppError('Nenhum arquivo digital válido disponível para este produto.', 404);
       }
@@ -32,6 +39,21 @@ export class DigitalFileController {
       // Incrementar contador apenas quando existir arquivo válido
       await digitalFileService.incrementDownloadCount(productId);
 
+      const signedFiles = files.map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        description: file.description,
+        fileSize: file.fileSize,
+        fileType: file.fileType,
+        downloadUrl: generateSignedDownloadUrl(file.fileUrl, { expiresInSeconds: 300 }),
+      }));
+
+      console.log('[DigitalFiles] URLs assinadas enviadas ao cliente:', signedFiles.map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        downloadUrl: file.downloadUrl,
+      })));
+
       res.json({
         product: {
           id: product.id,
@@ -41,14 +63,7 @@ export class DigitalFileController {
           orderId: purchase.orderId,
           purchasedAt: purchase.purchasedAt,
         },
-        files: files.map((file: any) => ({
-          id: file.id,
-          name: file.name,
-          description: file.description,
-          fileSize: file.fileSize,
-          fileType: file.fileType,
-          downloadUrl: file.fileUrl,
-        })),
+        files: signedFiles,
         message: 'Clique no link para baixar seu arquivo',
       });
     } catch (error: any) {
@@ -156,7 +171,14 @@ export class DigitalFileController {
       const file = await digitalFileService.getFileById(fileId);
 
       // Deletar do Cloudinary
-      await deleteFromCloudinary(file.fileUrl);
+      const cloudinaryDeletion = await deleteFromCloudinary(file.fileUrl);
+      if (!cloudinaryDeletion?.success) {
+        console.error('[DigitalFiles] Falha ao remover arquivo do Cloudinary:', {
+          fileId,
+          cloudinaryDeletion,
+        });
+        throw new AppError('Não conseguimos remover o arquivo da nuvem. Tente novamente em instantes.', 502);
+      }
 
       // Deletar do banco
       await digitalFileService.deleteFile(fileId);
