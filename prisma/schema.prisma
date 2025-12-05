@@ -194,7 +194,6 @@ model Product {
   weight       Float?           // Para cálculo de frete (gramas)
   dimensions   Json?            // { width, height, depth } em cm
   images       ProductImage[]   // Relação com imagens
-  promotions   Promotion[]      // Relação com promoções
   digitalFiles DigitalFile[]    // Arquivos para download (produtos digitais)
   reviews      Review[]         // Avaliações do produto
   createdAt    DateTime         @default(now())
@@ -241,25 +240,6 @@ model DigitalFile {
   @@index([active])
 }
 
-model Promotion {
-  id              String   @id @default(uuid())
-  productId       String
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name            String   // Nome da promoção (ex: "Black Friday")
-  discountPercent Float?   // Desconto em % (ex: 20.5 = 20.5%)
-  discountAmount  Float?   // OU desconto fixo em R$ (ex: 10.00)
-  startDate       DateTime // Data/hora início
-  endDate         DateTime // Data/hora fim
-  active          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@map("promotions")
-  @@index([productId])
-  @@index([active])
-  @@index([startDate, endDate])
-  @@index([productId, active, startDate, endDate])
-}
 
 model Notification {
   id        String           @id @default(uuid())

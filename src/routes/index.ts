@@ -4,7 +4,6 @@ export { default as customerAuthRoutes } from './customer-auth.routes';
 export { default as notificationsRoutes } from './notifications.routes';
 export { default as ordersRoutes } from './orders.routes';
 export { default as productsRoutes } from './products.routes'; // Inclui rotas de product-images
-export { default as promotionsRoutes } from './promotions.routes';
 export { default as digitalFilesRoutes } from './digital-files.routes';
 export { default as purchasesRoutes } from './purchases.routes';
 export { default as paymentsRoutes } from './payments.routes';

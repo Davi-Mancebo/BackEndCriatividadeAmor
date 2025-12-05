@@ -28,6 +28,15 @@ router.post(
   paymentController.webhook.bind(paymentController)
 );
 
+// 🧪 POST /api/payments/approve-test/:orderId - Aprovar pagamento manualmente (TESTE)
+router.post(
+  '/approve-test/:orderId',
+  validate([
+    param('orderId').isUUID().withMessage('ID do pedido inválido'),
+  ]),
+  paymentController.approveTest.bind(paymentController)
+);
+
 // GET /api/payments/status/:orderId - Verificar status do pagamento (público)
 router.get(
   '/status/:orderId',

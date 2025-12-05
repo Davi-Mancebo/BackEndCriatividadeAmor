@@ -44,10 +44,10 @@ export class PaymentController {
         preferenceId: preference.id,
       });
 
-      // Atualizar status do pedido
+      // Garantir que o pedido permaneça como PENDING (status principal) enquanto aguardamos pagamento
       await prisma.order.update({
         where: { id: orderId },
-        data: { status: 'PAYMENT_PENDING' },
+        data: { status: 'PENDING' },
       });
 
       res.status(201).json({
@@ -60,6 +60,63 @@ export class PaymentController {
     } catch (error: any) {
       res.status(error.statusCode || 500).json({
         error: error.message || 'Erro ao criar pagamento'
+      });
+    }
+  }
+
+  // 🧪 TESTE: Aprovar pagamento manualmente (somente desenvolvimento)
+  async approveTest(req: Request, res: Response) {
+    try {
+      if (process.env.NODE_ENV === 'production') {
+        throw new AppError('Rota disponível apenas em desenvolvimento', 403);
+      }
+
+      const { orderId } = req.params;
+      console.info('[PaymentController] 🧪 TEST: Manual payment approval', { orderId });
+
+      // Buscar pagamento
+      const payment = await paymentService.getPaymentByOrderId(orderId);
+
+      if (!payment) {
+        throw new AppError('Pagamento não encontrado', 404);
+      }
+
+      if (payment.status === 'APPROVED') {
+        return res.json({ 
+          message: 'Pagamento já estava aprovado',
+          payment,
+        });
+      }
+
+      // Simular webhook de aprovação
+      const mockWebhookData = {
+        id: Date.now(),
+        type: 'payment',
+        action: 'payment.updated',
+        data: { id: payment.mercadoPagoId || 'test-' + Date.now() },
+        date_created: new Date().toISOString(),
+        test: true,
+      };
+
+      // Processar aprovação
+      await paymentService.processPaymentApproval(payment.id, mockWebhookData);
+
+      const updatedPayment = await paymentService.getPaymentById(payment.id);
+
+      res.json({
+        message: '✅ Pagamento aprovado com sucesso (modo teste)',
+        payment: updatedPayment,
+        note: 'Downloads liberados e email enviado',
+      });
+      
+      console.info('[PaymentController] ✅ TEST: Payment approved', { 
+        paymentId: payment.id, 
+        orderId 
+      });
+    } catch (error: any) {
+      console.error('[PaymentController] ❌ TEST: Error approving payment', error);
+      res.status(error.statusCode || 500).json({
+        error: error.message || 'Erro ao aprovar pagamento de teste'
       });
     }
   }

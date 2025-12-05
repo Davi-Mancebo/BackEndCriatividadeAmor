@@ -99,7 +99,7 @@ router.put(
   '/:id',
   validate([
     param('id').isUUID().withMessage('ID inválido'),
-    body('status').optional().isIn(['PENDING', 'PAYMENT_PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'PAID', 'CANCELLED', 'REFUNDED']),
+    body('status').optional().isIn(['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'PAID', 'CANCELLED', 'REFUNDED']),
     body('trackingCode').optional().isString(),
     body('notes').optional().isString(),
   ]),

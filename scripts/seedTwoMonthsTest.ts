@@ -283,7 +283,7 @@ async function seedOrders(products: { id: string; title: string; price: number }
       customer,
       products,
       createdAt: daysAgo(randomInt(1, 6)),
-      status: 'PAYMENT_PENDING',
+      status: 'PENDING',
       paymentStatus: 'PENDING',
       includePreferenceLink: false,
     });

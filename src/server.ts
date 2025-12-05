@@ -13,7 +13,6 @@ import {
   notificationsRoutes,
   ordersRoutes,
   productsRoutes,
-  promotionsRoutes,
   digitalFilesRoutes,
   purchasesRoutes,
   paymentsRoutes,
@@ -77,7 +76,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/customers/auth', customerAuthRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/products', productsRoutes); // Inclui rotas de imagens de produtos
-app.use('/api/promotions', promotionsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/digital-files', digitalFilesRoutes);
 app.use('/api/purchases', purchasesRoutes);

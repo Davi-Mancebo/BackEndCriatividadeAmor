@@ -211,7 +211,6 @@ class OrdersService {
       SHIPPED: 0,
       DELIVERED: 0,
       CANCELLED: 0,
-      PAYMENT_PENDING: 0,
       PAID: 0,
       REFUNDED: 0,
     };
@@ -363,6 +362,7 @@ class OrdersService {
         shipping: data.shipping || 0,
         total: data.total,
         shippingAddress: data.shippingAddress,
+        status: 'PENDING', // Always start as PENDING
       },
     });
 
@@ -412,6 +412,7 @@ class OrdersService {
   async update(orderId: string, data: UpdateOrderData, userId: string) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
+      include: { payment: true },
     });
 
     if (!order) {
@@ -425,7 +426,47 @@ class OrdersService {
         ...(data.trackingCode !== undefined && { trackingCode: data.trackingCode }),
         ...(data.notes !== undefined && { notes: data.notes }),
       },
+      include: {
+        payment: true,
+      },
     });
+
+    // Se admin marcou como DELIVERED, criar histórico de compra para liberar download
+    if (data.status === 'DELIVERED' && order.status !== 'DELIVERED') {
+      const items = updatedOrder.items as any[];
+      const customerEmail = updatedOrder.customerEmail || order.payment?.payerEmail;
+      
+      if (customerEmail) {
+        for (const item of items) {
+          // Verificar se já não existe histórico para este produto
+          const existingHistory = await prisma.purchaseHistory.findFirst({
+            where: {
+              orderId: updatedOrder.id,
+              productId: item.productId,
+              customerEmail,
+            },
+          });
+
+          if (!existingHistory) {
+            await prisma.purchaseHistory.create({
+              data: {
+                orderId: updatedOrder.id,
+                customerEmail,
+                customerName: updatedOrder.customerName,
+                productId: item.productId,
+                productTitle: item.title,
+                pricePaid: item.price * item.quantity,
+              },
+            });
+          }
+        }
+
+        // Enviar email de liberação de download
+        emailService
+          .sendPaymentConfirmation(updatedOrder)
+          .catch((error) => console.error('Erro ao enviar email de liberação de download:', error));
+      }
+    }
 
     // Criar notificação se o status foi alterado
     if (data.status && data.status !== order.status) {

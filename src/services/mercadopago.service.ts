@@ -102,7 +102,21 @@ export class MercadoPagoService {
         const fallbackTitle = `Produto ${index + 1}`;
         const title = item?.title || item?.name || item?.productName || fallbackTitle;
         const picture = item?.image || item?.picture_url || item?.cover;
-        const unitPrice = typeof item?.price === 'number' ? item.price : Number(item?.price) || 0;
+        
+        // Converter para número e garantir 2 casas decimais
+        let unitPrice = 0;
+        if (typeof item?.price === 'number') {
+          unitPrice = item.price;
+        } else if (item?.price) {
+          unitPrice = Number(item.price);
+        }
+        
+        // Arredondar para 2 casas decimais e garantir que seja > 0
+        unitPrice = Math.round(unitPrice * 100) / 100;
+        if (unitPrice <= 0) {
+          console.warn('[MercadoPago] Preço inválido detectado', { orderId: order.id, index, price: item?.price });
+          unitPrice = 0.01; // Preço mínimo
+        }
 
         if (!title) {
           console.warn('[MercadoPago] Item sem título detectado', { orderId: order.id, index });
@@ -157,10 +171,14 @@ export class MercadoPagoService {
     };
 
     try {
+      console.log('[MercadoPago] Criando preferência com items:', 
+        JSON.stringify(preference.items, null, 2));
+      
       const response = await this.mercadopago.preferences.create(preference);
       return response.body;
     } catch (error: any) {
       console.error('Erro ao criar preferência MP:', error);
+      console.error('[MercadoPago] Dados enviados:', JSON.stringify(preference, null, 2));
       throw new AppError(
         `Erro ao criar pagamento: ${error.message}`,
         500
