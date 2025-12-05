@@ -11,7 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "seed": "tsx src/prisma/seed.ts",
-    "seed:30days": "tsx src/prisma/seed-30days.ts"
+    "create-admin": "tsx scripts/createAdmin.ts"
   },
   "keywords": [
     "api",
