@@ -87,15 +87,6 @@ class ProductsService {
           images: {
             orderBy: { order: 'asc' },
           },
-          promotions: {
-            where: {
-              active: true,
-              startDate: { lte: now },
-              endDate: { gte: now },
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
           reviews: {
             where: { verified: true },
             select: {
@@ -141,14 +132,6 @@ class ProductsService {
       include: {
         images: {
           orderBy: { order: 'asc' },
-        },
-        promotions: {
-          where: {
-            active: true,
-            startDate: { lte: now },
-            endDate: { gte: now },
-          },
-          orderBy: { createdAt: 'desc' },
         },
         reviews: {
           where: { verified: true },
@@ -206,13 +189,6 @@ class ProductsService {
       },
       include: {
         images: true,
-        promotions: {
-          where: {
-            active: true,
-            startDate: { lte: new Date() },
-            endDate: { gte: new Date() },
-          },
-        },
       },
     });
 
